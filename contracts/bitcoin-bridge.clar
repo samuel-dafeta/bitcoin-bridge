@@ -37,3 +37,47 @@
 (define-data-var total-locked-bitcoin uint u0)
 (define-data-var bridge-fee-percentage uint u10)
 (define-data-var max-deposit-amount uint u10000000) ;; 100 BTC default max
+
+;; Security and Validation Maps
+(define-map authorized-oracles principal bool)
+(define-map processed-transactions { tx-hash: (string-ascii 64) } bool)
+(define-map recipient-whitelist principal bool)
+
+;; Bitcoin-BTC Token Definition
+(define-fungible-token Bitcoin-btc)
+
+;; User Balance Tracking
+(define-map user-balances 
+  { user: principal }
+  { amount: uint }
+)
+
+;; Authorization Functions
+(define-read-only (is-bridge-owner (sender principal))
+  (is-eq sender (var-get bridge-owner))
+)
+
+;; Validation Helpers
+(define-private (is-valid-principal (addr principal))
+  (and 
+    (not (is-eq addr tx-sender))
+    (not (is-eq addr .none))
+  )
+)
+
+(define-private (is-valid-tx-hash (hash (string-ascii 64)))
+  (and 
+    (not (is-eq hash ""))
+    (> (len hash) u10)
+  )
+)
+
+;; Oracle Management
+(define-public (add-oracle (oracle principal))
+  (begin
+    (try! (check-is-bridge-owner))
+    (asserts! (is-valid-principal oracle) ERR-INVALID-RECIPIENT)
+    (map-set authorized-oracles oracle true)
+    (ok true)
+  )
+)
